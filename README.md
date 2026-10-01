@@ -35,7 +35,7 @@ That's it: every 15 minutes the checker runs, commits fresh `uptime.json`, and r
 
 ## Deploy to Cloudflare Pages
 
-[![Deploy to Cloudflare](https://deploy.cloudflare.com/button.svg)](https://deploy.cloudflare.com/?url=https://github.com/zicula/cloudflare-status-page)
+[![Deploy to Cloudflare](https://deploy.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/zicula/cloudflare-status-page)
 
 Point the Pages project at your custom domain and you have a branded status page with $0/month hosting.
 
