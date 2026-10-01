@@ -1,0 +1,36 @@
+# Status Page Self-Host Kit — crontab examples (any Linux/macOS host)
+# Install: crontab -e  → paste the line you want, fix the paths and node.
+# Find your node path with:  which node
+# To get an email when a run fails, set MAILTO at the top of your crontab:
+#   MAILTO=you@your-company.example
+#
+# Every server already has cron. No extra software, no account, no vendor.
+#
+# The check reads ../status-page/config.json and rewrites
+# ../status-page/uptime.json — the file the status page's bars render from.
+# After each run, get the updated uptime.json onto your status page host
+# (see "Publishing the result" below).
+
+# 1) Check every 15 minutes (a solid default for a public status page):
+*/15 * * * * cd /opt/status-kit/uptime && /usr/bin/node uptime-check.mjs >> checks.log 2>&1
+
+# 2) Same schedule, but email yourself only when something is DOWN
+#    (--fail-on-down makes the script exit 1):
+# */15 * * * * cd /opt/status-kit/uptime && /usr/bin/node uptime-check.mjs --quiet --fail-on-down || echo "ALERT: a system is DOWN — check /opt/status-kit/uptime/checks.log"
+
+# 3) Sparse schedule if you only want a daily point per system (bars still
+#    render — one data point per day is all a day cell needs):
+# 30 6 * * * cd /opt/status-kit/uptime && /usr/bin/node uptime-check.mjs >> checks.log 2>&1
+
+# Publishing the result (pick ONE that fits your hosting):
+#   A) Status page hosted on the same box (nginx/Caddy serving the folder):
+#      nothing to do — uptime.json is already the served file.
+#   B) Status page on Cloudflare Pages / any static host + repo as source:
+#      commit and push uptime.json after each run in the same cron job:
+#     cd /opt/status-kit && /usr/bin/git -C status-repo add status-page/uptime.json && /usr/bin/git -C status-repo commit -m "uptime update $(date -u +%F-%H%M)" -q && /usr/bin/git -C status-repo push -q
+#   C) No server at all: use the bundled GitHub Actions workflow
+#      (uptime/github-actions.yml) instead of cron — it runs on GitHub's
+#      schedule and deploys the page with the fresh data for you.
+#
+# Keep the folder backed up: config.json, incidents.json and uptime.json
+# (plus your git repo, if you publish through one) are the whole state.

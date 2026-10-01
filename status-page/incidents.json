@@ -1,0 +1,32 @@
+{
+  "_note": "Incidents your visitors see. status: investigating | identified | monitoring | resolved. severity: minor | major | critical | maintenance. updates are shown oldest-last; add one per status change. The two demo incidents are fake — replace them with your real history (or empty the list). Edit with editor/index.html.",
+  "incidents": [
+    {
+      "id": "demo-002",
+      "title": "Scheduled maintenance: API upgrade",
+      "status": "resolved",
+      "severity": "maintenance",
+      "systems": ["api"],
+      "started_at": "2026-09-10T02:00:00Z",
+      "resolved_at": "2026-09-10T03:05:00Z",
+      "updates": [
+        { "at": "2026-09-10T02:00:00Z", "status": "investigating", "message": "Maintenance window started. The API may answer slowly while the upgrade runs." },
+        { "at": "2026-09-10T03:05:00Z", "status": "resolved", "message": "Upgrade finished ahead of schedule. Everything is back to normal — this is a demo entry you can delete." }
+      ]
+    },
+    {
+      "id": "demo-001",
+      "title": "Website unreachable for some visitors",
+      "status": "resolved",
+      "severity": "major",
+      "systems": ["web"],
+      "started_at": "2026-08-21T14:12:00Z",
+      "resolved_at": "2026-08-21T15:03:00Z",
+      "updates": [
+        { "at": "2026-08-21T14:20:00Z", "status": "investigating", "message": "We are seeing errors reaching the website and are investigating. This is a demo entry you can delete." },
+        { "at": "2026-08-21T14:40:00Z", "status": "identified", "message": "A bad deploy overloaded the origin server. Rolling back now." },
+        { "at": "2026-08-21T15:03:00Z", "status": "resolved", "message": "Rollback complete, error rates back to normal. We will post a follow-up on what changed in the deploy process." }
+      ]
+    }
+  ]
+}

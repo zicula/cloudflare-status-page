@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status Page Editor — local tool</title>
+<!--
+  INCIDENT EDITOR — local, offline, no install.
+  Open this file in a browser (double-click works). Load your status page's
+  config.json / incidents.json / uptime.json, edit with forms, export the
+  files back next to your status-page/ folder, then deploy.
+  Nothing leaves this browser tab: no server, no account, no telemetry.
+-->
+<style>
+  :root {
+    --paper: #F7F8FA; --card: #FFFFFF; --ink: #1F2A3A; --muted: #55627A;
+    --line: #DCE3EE; --accent: #1D4ED8; --accent-dark: #1E40AF; --amber: #F2B33D;
+    --bad: #B42318; --bad-bg: #FBEFED; --ok: #0E7C66; --ok-bg: #E7F4F0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans Thai", sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  header { background: var(--ink); color: #E8EDF6; padding: 14px 0; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; width: 100%; }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .logo { font-weight: 800; font-size: 17px; }
+  .logo em { color: var(--amber); font-style: normal; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tab {
+    min-height: 44px; padding: 9px 16px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.3);
+    background: transparent; color: #E8EDF6; font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: background-color 0.18s ease;
+  }
+  .tab[aria-selected="true"] { background: rgba(255,255,255,0.16); }
+  .tab:hover { background: rgba(255,255,255,0.10); }
+  main { flex: 1; padding: 26px 0 40px; }
+  .panel[hidden] { display: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--muted); font-size: 13.5px; margin-bottom: 14px; }
+  label { display: block; font-size: 12.5px; font-weight: 700; margin: 12px 0 4px; }
+  input[type=text], input[type=email], input[type=url], input[type=date], input[type=time], textarea, select {
+    width: 100%; min-height: 42px; padding: 9px 12px; font-size: 14px; font-family: inherit;
+    border: 1.5px solid #C9D5E6; border-radius: 9px; background: var(--paper); color: var(--ink);
+  }
+  textarea { min-height: 84px; resize: vertical; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--amber); outline-offset: 1px;
+  }
+  .row { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 720px) { .row.c2 { grid-template-columns: 1fr 1fr; } .row.c3 { grid-template-columns: 2fr 1fr 1fr; } }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
+    background: var(--accent); color: #FFFFFF; font-weight: 700; font-size: 14.5px;
+    transition: background-color 0.18s ease;
+  }
+  .btn:hover { background: var(--accent-dark); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn.ghost:hover { background: #EDF2FE; }
+  .btn.danger { background: transparent; color: var(--bad); border: 1.5px solid var(--bad); }
+  .btn.danger:hover { background: var(--bad-bg); }
+  .btn.small { min-height: 36px; padding: 6px 14px; font-size: 13px; }
+  .state-line { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0 14px; font-size: 13.5px; }
+  .pill { font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 99px; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.none { background: #EEF1F5; color: var(--muted); }
+  .msg { font-size: 13.5px; margin-top: 10px; padding: 10px 12px; border-radius: 9px; display: none; }
+  .msg.show { display: block; }
+  .msg.err { background: var(--bad-bg); color: var(--bad); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: var(--card); }
+  summary { cursor: pointer; font-weight: 700; font-size: 14.5px; min-height: 32px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  summary .when { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+  .inc-body { margin-top: 12px; }
+  .updates { margin: 10px 0; border-left: 2.5px solid var(--line); padding-left: 12px; }
+  .updates .u { padding: 5px 0; font-size: 13.5px; }
+  .updates .u b { font-size: 12.5px; }
+  .updates .u span.at { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  footer { border-top: 1px solid var(--line); padding: 18px 0 26px; color: var(--muted); font-size: 12.5px; text-align: center; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+  code { background: #EEF1F5; border-radius: 5px; padding: 1px 6px; font-size: 12.5px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="logo">Status Page <em>Editor</em></span>
+    <nav role="tablist" aria-label="Editor sections">
+      <button class="tab" id="tab-load" role="tab" aria-selected="true" aria-controls="panel-load">1 · Load files</button>
+      <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config">2 · Brand &amp; systems</button>
+      <button class="tab" id="tab-incidents" role="tab" aria-selected="false" aria-controls="panel-incidents">3 · Incidents</button>
+      <button class="tab" id="tab-uptime" role="tab" aria-selected="false" aria-controls="panel-uptime">4 · Uptime</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ 1 LOAD ============ -->
+  <section class="panel card" id="panel-load" role="tabpanel" aria-labelledby="tab-load">
+    <h1>Load your status page files</h1>
+    <p class="sub">This editor runs entirely in your browser — files never leave this tab. Serving the folder over HTTP? Files load automatically. Otherwise pick them from disk.</p>
+    <div class="state-line" id="load-state">
+      <span class="pill none" id="pill-config">config.json: not loaded</span>
+      <span class="pill none" id="pill-incidents">incidents.json: not loaded</span>
+      <span class="pill none" id="pill-uptime">uptime.json: not loaded</span>
+    </div>
+    <p class="label" style="font-size:12.5px;font-weight:700;margin:12px 0 4px">Pick files from disk (multi-select works)</p>
+    <input type="file" id="files" accept=".json,application/json" multiple
+           aria-label="Choose config.json, incidents.json and uptime.json">
+    <p class="hint">Expected layout: the three files that sit next to your status page's <code>index.html</code>. Export buttons appear on each tab once a file is loaded.</p>
+    <div class="msg" id="load-msg"></div>
+  </section>
+
+  <!-- ============ 2 CONFIG ============ -->
+  <section class="panel card" id="panel-config" role="tabpanel" aria-labelledby="tab-config" hidden>
+    <h2>Brand &amp; page text <button class="btn small" id="export-config" style="float:right">Export config.json</button></h2>
+    <p class="sub">Everything visitors see on the status page comes from here.</p>
+    <div class="row c2">
+      <div><label for="c-name">Company / product name</label><input type="text" id="c-name"></div>
+      <div><label for="c-tagline">Tagline (small text under the name)</label><input type="text" id="c-tagline"></div>
+    </div>
+    <div class="row c2">
+      <div><label for="c-logotext">Logo text (shown in a dashed box)</label><input type="text" id="c-logotext"></div>
+      <div><label for="c-logofile">Logo file (e.g. logo.png, placed next to index.html — overrides logo text)</label><input type="text" id="c-logofile" placeholder="logo.png"></div>
+    </div>
+    <div class="row c3">
+      <div><label for="c-homepage">Homepage URL</label><input type="url" id="c-homepage"></div>
+      <div><label for="c-email">Support email</label><input type="email" id="c-email"></div>
+      <div><label for="c-accent">Accent color</label><input type="text" id="c-accent" placeholder="#1D4ED8"></div>
+    </div>
+    <div class="row c2">
+      <div><label for="c-title">Browser tab title</label><input type="text" id="c-title"></div>
+      <div><label for="c-tz">Timezone shown for dates</label>
+        <select id="c-tz"><option value="UTC">UTC</option><option value="local">Visitor's local timezone</option></select>
+      </div>
+    </div>
+    <label for="c-allok">Banner text when everything is up</label><input type="text" id="c-allok">
+    <label for="c-footer">Footer note</label><input type="text" id="c-footer">
+
+    <h2 style="margin-top:22px">Systems (rows on the page)</h2>
+    <p class="sub">One row per system. <code>id</code> is stable — uptime history keys on it, so never rename an id; rename the display name instead. <code>check_url</code> is what <code>uptime/uptime-check.mjs</code> pings.</p>
+    <div id="sys-list"></div>
+    <button class="btn ghost small" id="add-system">+ Add system</button>
+    <div class="msg" id="config-msg"></div>
+  </section>
+
+  <!-- ============ 3 INCIDENTS ============ -->
+  <section class="panel" id="panel-incidents" role="tabpanel" aria-labelledby="tab-incidents" hidden>
+    <div class="card">
+      <h2>Post a new incident <button class="btn small" id="export-incidents" style="float:right">Export incidents.json</button></h2>
+      <div class="row c2">
+        <div><label for="i-title">Title</label><input type="text" id="i-title" placeholder="API returning errors for some requests"></div>
+        <div><label for="i-sev">Severity</label>
+          <select id="i-sev">
+            <option value="minor">minor — degraded but usable</option>
+            <option value="major">major — significant impact</option>
+            <option value="critical">critical — down for most users</option>
+            <option value="maintenance">maintenance — planned work</option>
+          </select>
+        </div>
+      </div>
+      <label>Systems affected</label>
+      <div id="i-systems" class="hint"></div>
+      <div class="row c2">
+        <div><label for="i-date">Started — date (UTC)</label><input type="date" id="i-date"></div>
+        <div><label for="i-time">Started — time (UTC)</label><input type="time" id="i-time"></div>
+      </div>
+      <label for="i-msg">First update message</label>
+      <textarea id="i-msg" placeholder="We are investigating reports of…"></textarea>
+      <p style="margin-top:14px"><button class="btn" id="add-incident">Post incident</button></p>
+      <div class="msg" id="inc-msg"></div>
+    </div>
+    <div class="card">
+      <h2>Existing incidents</h2>
+      <p class="sub">Open one to add an update or resolve it. Newest first is how the page shows them.</p>
+      <div id="inc-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 4 UPTIME ============ -->
+  <section class="panel card" id="panel-uptime" role="tabpanel" aria-labelledby="tab-uptime" hidden>
+    <h2>Uptime history (read-only here)</h2>
+    <p class="sub">Written by <code>uptime/uptime-check.mjs</code> on every run — percentages per system per day are what the bars on the status page render. Schedule the check with cron or GitHub Actions (see SETUP.md). No export needed: you never edit this file by hand.</p>
+    <div id="uptime-out"></div>
+  </section>
+
+</main>
+
+<footer>
+  Status Page Editor · local tool · your files stay on your machine
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var DATA = { config: null, incidents: null, uptime: null };
+  var NAMES = { config: "config.json", incidents: "incidents.json", uptime: "uptime.json" };
+
+  function showMsg(id, text, ok) {
+    var el = $(id);
+    el.textContent = text;
+    el.className = "msg show " + (ok ? "ok" : "err");
+    setTimeout(function () { el.className = "msg"; }, 6000);
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function download(name, obj) {
+    var blob = new Blob([JSON.stringify(obj, null, 2) + "\n"], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+  function setPill(kind, loaded) {
+    var p = $("pill-" + kind);
+    p.textContent = NAMES[kind] + ": " + (loaded ? "loaded" : "not loaded");
+    p.className = "pill " + (loaded ? "ok" : "none");
+  }
+  function ingest(kind, text) {
+    var obj;
+    try { obj = JSON.parse(text); }
+    catch (e) { return false; }
+    if (kind === "config" && !obj.systems) return false;
+    if (kind === "incidents" && !obj.incidents) return false;
+    if (kind === "uptime" && !obj.days) return false;
+    DATA[kind] = obj;
+    setPill(kind, true);
+    return true;
+  }
+
+  // ---- tab switching ----
+  var tabs = ["load", "config", "incidents", "uptime"];
+  tabs.forEach(function (t) {
+    $("tab-" + t).addEventListener("click", function () {
+      tabs.forEach(function (x) {
+        $("tab-" + x).setAttribute("aria-selected", x === t ? "true" : "false");
+        $("panel-" + x).hidden = x !== t;
+      });
+      if (t === "config") renderConfig();
+      if (t === "incidents") renderIncidents();
+      if (t === "uptime") renderUptime();
+    });
+  });
+
+  // ---- auto-load when served over HTTP ----
+  if (location.protocol !== "file:") {
+    ["config", "incidents", "uptime"].forEach(function (kind) {
+      fetch("../status-page/" + NAMES[kind], { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+        .then(function (t) { if (ingest(kind, t)) showMsg("load-msg", NAMES[kind] + " auto-loaded from ../status-page/.", true); })
+        .catch(function () {});
+    });
+  }
+
+  // ---- file picker ----
+  $("files").addEventListener("change", function (ev) {
+    var files = Array.prototype.slice.call(ev.target.files || []);
+    if (!files.length) return;
+    var done = 0, bad = [];
+    files.forEach(function (f) {
+      var kind = /config/i.test(f.name) ? "config" : /incident/i.test(f.name) ? "incidents" : /uptime/i.test(f.name) ? "uptime" : null;
+      var fr = new FileReader();
+      fr.onload = function () {
+        if (!kind || !ingest(kind, String(fr.result))) bad.push(f.name);
+        if (++done === files.length) {
+          if (bad.length) showMsg("load-msg", "Could not load: " + bad.join(", ") + " — filenames must contain config/incidents/uptime and the JSON must have the right shape.", false);
+          else showMsg("load-msg", "All files loaded. Continue on tabs 2 and 3.", true);
+        }
+      };
+      fr.onerror = function () { bad.push(f.name); };
+      fr.readAsText(f);
+    });
+  });
+
+  // ---- config form ----
+  function renderConfig() {
+    var c = DATA.config;
+    if (!c) { $("sys-list").innerHTML = '<p class="hint">Load config.json first (tab 1).</p>'; return; }
+    var b = c.brand || {}, p = c.page || {};
+    $("c-name").value = b.name || ""; $("c-tagline").value = b.tagline || "";
+    $("c-logotext").value = b.logo_text || ""; $("c-logofile").value = b.logo_file || "";
+    $("c-accent").value = b.accent || "#1D4ED8"; $("c-homepage").value = b.homepage || "";
+    $("c-email").value = b.support_email || ""; $("c-title").value = p.title || "Status";
+    $("c-tz").value = p.timezone === "local" ? "local" : "UTC";
+    $("c-allok").value = p.all_ok || "All systems operational";
+    $("c-footer").value = p.footer_note || "";
+    renderSystems();
+  }
+  function renderSystems() {
+    var c = DATA.config; if (!c) return;
+    var list = c.systems || [];
+    $("sys-list").innerHTML = list.map(function (s, i) {
+      return '<div class="card" style="padding:14px;margin-bottom:10px">'
+        + '<div class="row c3">'
+        + '<div><label for="s-id-' + i + '">id (stable, never rename)</label><input type="text" id="s-id-' + i + '" value="' + esc(s.id) + '"></div>'
+        + '<div><label for="s-name-' + i + '">Display name</label><input type="text" id="s-name-' + i + '" value="' + esc(s.name || "") + '"></div>'
+        + '<div><label for="s-url-' + i + '">check_url</label><input type="url" id="s-url-' + i + '" value="' + esc(s.check_url || "") + '"></div>'
+        + '</div>'
+        + '<label for="s-desc-' + i + '">Short description (optional)</label><input type="text" id="s-desc-' + i + '" value="' + esc(s.description || "") + '">'
+        + '<p style="margin-top:10px"><button class="btn danger small" data-del="' + i + '">Remove system</button></p>'
+        + '</div>';
+    }).join("") || '<p class="hint">No systems yet — add at least one.</p>';
+    Array.prototype.forEach.call($("sys-list").querySelectorAll("[data-del]"), function (btn) {
+      btn.addEventListener("click", function () {
+        DATA.config.systems.splice(parseInt(btn.getAttribute("data-del"), 10), 1);
+        renderSystems();
+      });
+    });
+  }
+  function collectConfig() {
+    var c = DATA.config; if (!c) return false;
+    if (!c.brand) c.brand = {}; if (!c.page) c.page = {};
+    var b = c.brand, p = c.page;
+    b.name = $("c-name").value.trim(); b.tagline = $("c-tagline").value.trim();
+    b.logo_text = $("c-logotext").value.trim(); b.logo_file = $("c-logofile").value.trim();
+    var accent = $("c-accent").value.trim();
+    b.accent = /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#1D4ED8";
+    b.homepage = $("c-homepage").value.trim(); b.support_email = $("c-email").value.trim();
+    p.title = $("c-title").value.trim() || "Status";
+    p.timezone = $("c-tz").value === "local" ? "local" : "UTC";
+    p.all_ok = $("c-allok").value.trim() || "All systems operational";
+    p.footer_note = $("c-footer").value.trim();
+    var list = $("sys-list");
+    Array.prototype.forEach.call(list.querySelectorAll("[id^='s-id-']"), function (inp) {
+      var i = inp.id.split("-").pop();
+      var sys = c.systems[i] = c.systems[i] || {};
+      sys.id = inp.value.trim();
+      sys.name = $("s-name-" + i).value.trim();
+      sys.check_url = $("s-url-" + i).value.trim();
+      sys.description = $("s-desc-" + i).value.trim();
+    });
+    return true;
+  }
+  $("add-system").addEventListener("click", function () {
+    if (!DATA.config) { showMsg("config-msg", "Load config.json first (tab 1).", false); return; }
+    collectConfig();
+    DATA.config.systems.push({ id: "system-" + (DATA.config.systems.length + 1), name: "New system", description: "", check_url: "https://" });
+    renderSystems();
+  });
+  $("export-config").addEventListener("click", function () {
+    if (!DATA.config) { showMsg("config-msg", "Nothing to export yet — load config.json first.", false); return; }
+    collectConfig();
+    var missing = (DATA.config.systems || []).filter(function (s) { return !s.id || !s.check_url; });
+    if (missing.length) { showMsg("config-msg", "Every system needs an id and a check_url before export.", false); return; }
+    download("config.json", DATA.config);
+    showMsg("config-msg", "config.json exported — put it back next to your status page index.html and deploy.", true);
+  });
+
+  // ---- incidents ----
+  function renderIncidents() {
+    var inc = DATA.incidents;
+    if (!inc) {
+      $("inc-list").innerHTML = '<p class="hint">Load incidents.json first (tab 1).</p>';
+      $("i-systems").innerHTML = "Load config.json to pick affected systems.";
+      return;
+    }
+    var sys = (DATA.config && DATA.config.systems) || [];
+    $("i-systems").innerHTML = sys.length ? sys.map(function (s) {
+      return '<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 14px 4px 0;font-weight:400;font-size:14px">'
+        + '<input type="checkbox" value="' + esc(s.id) + '"> ' + esc(s.name || s.id) + "</label>";
+    }).join("") : "No systems found in config.json — you can still post without system tags.";
+    $("inc-list").innerHTML = (inc.incidents || []).map(function (x, i) {
+      var ups = (x.updates || []).map(function (u) {
+        return '<div class="u"><b>' + esc(u.status || "update") + '</b><span class="at">' + esc(u.at || "") + "</span><br>" + esc(u.message) + "</div>";
+      }).join("");
+      return '<details><summary><span class="pill ' + (x.status === "resolved" ? "ok" : "none") + '">' + esc(x.status || "?") + "</span> "
+        + esc(x.title || "(untitled)") + ' <span class="when">' + esc(x.started_at || "") + "</span></summary>"
+        + '<div class="inc-body">'
+        + '<div class="row c2">'
+        + '<div><label for="u-status-' + i + '">New update — status</label><select id="u-status-' + i + '">'
+        + ["investigating", "identified", "monitoring", "resolved"].map(function (s2) {
+            return '<option value="' + s2 + '"' + (x.status === s2 ? " selected" : "") + ">" + s2 + "</option>";
+          }).join("") + "</select></div>"
+        + '<div><label for="u-at-' + i + '">Update time (UTC, e.g. 2026-09-19T10:30:00Z)</label><input type="text" id="u-at-' + i + '" value="' + esc(new Date().toISOString().slice(0, 16) + "Z") + '"></div>'
+        + "</div>"
+        + '<label for="u-msg-' + i + '">Update message</label><textarea id="u-msg-' + i + '"></textarea>'
+        + '<p style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'
+        + '<button class="btn small" data-add="' + i + '">Add update</button>'
+        + '<button class="btn ghost small" data-resolve="' + i + '">Mark resolved</button>'
+        + '<button class="btn danger small" data-del="' + i + '">Delete incident</button>'
+        + "</p>"
+        + '<div class="updates">' + (ups || '<div class="u">No updates yet.</div>') + "</div>"
+        + "</div></details>";
+    }).join("") || '<p class="hint">No incidents — that is good news. The status page shows your "no incidents" text.</p>';
+
+    Array.prototype.forEach.call($("inc-list").querySelectorAll("[data-add]"), function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(btn.getAttribute("data-add"), 10), x = DATA.incidents.incidents[i];
+        var st = $("u-status-" + i).value, at = $("u-at-" + i).value.trim(), msg = $("u-msg-" + i).value.trim();
+        if (!msg) { showMsg("inc-msg", "Write the update message first.", false); return; }
+        x.updates = x.updates || [];
+        x.updates.push({ at: at || new Date().toISOString(), status: st, message: msg });
+        if (st === "resolved") { x.status = "resolved"; x.resolved_at = at || new Date().toISOString(); }
+        else x.status = st;
+        renderIncidents();
+        showMsg("inc-msg", "Update added to \"" + (x.title || "incident") + "\" — remember to export.", true);
+      });
+    });
+    Array.prototype.forEach.call($("inc-list").querySelectorAll("[data-resolve]"), function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(btn.getAttribute("data-resolve"), 10), x = DATA.incidents.incidents[i];
+        var at = new Date().toISOString();
+        x.status = "resolved"; x.resolved_at = at;
+        x.updates = x.updates || [];
+        x.updates.push({ at: at, status: "resolved", message: "Resolved." });
+        renderIncidents();
+        showMsg("inc-msg", "Marked resolved — edit the auto \"Resolved.\" text before exporting if you want nicer wording.", true);
+      });
+    });
+    Array.prototype.forEach.call($("inc-list").querySelectorAll("[data-del]"), function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(btn.getAttribute("data-del"), 10);
+        DATA.incidents.incidents.splice(i, 1);
+        renderIncidents();
+        showMsg("inc-msg", "Incident deleted (not exported until you press Export).", true);
+      });
+    });
+  }
+  $("add-incident").addEventListener("click", function () {
+    if (!DATA.incidents) { showMsg("inc-msg", "Load incidents.json first (tab 1).", false); return; }
+    var title = $("i-title").value.trim();
+    if (!title) { showMsg("inc-msg", "Give the incident a title.", false); return; }
+    var d = $("i-date").value || new Date().toISOString().slice(0, 10);
+    var t = $("i-time").value || new Date().toISOString().slice(11, 16);
+    var at = d + "T" + t + ":00Z";
+    var systems = Array.prototype.map.call($("i-systems").querySelectorAll("input:checked"), function (c) { return c.value; });
+    var sev = $("i-sev").value;
+    var st = sev === "maintenance" ? "monitoring" : "investigating";
+    DATA.incidents.incidents.unshift({
+      id: "inc-" + Date.now(),
+      title: title, status: st, severity: sev, systems: systems,
+      started_at: at, resolved_at: "",
+      updates: [{ at: at, status: st, message: $("i-msg").value.trim() || (sev === "maintenance" ? "Maintenance window started." : "We are investigating.")] }
+    });
+    $("i-title").value = ""; $("i-msg").value = "";
+    renderIncidents();
+    showMsg("inc-msg", "Incident posted — export incidents.json and deploy to make it public.", true);
+  });
+  $("export-incidents").addEventListener("click", function () {
+    if (!DATA.incidents) { showMsg("inc-msg", "Nothing to export — load incidents.json first.", false); return; }
+    download("incidents.json", DATA.incidents);
+    showMsg("inc-msg", "incidents.json exported — put it back next to your status page index.html and deploy.", true);
+  });
+
+  // ---- uptime (read-only) ----
+  function renderUptime() {
+    var u = DATA.uptime;
+    if (!u) { $("uptime-out").innerHTML = '<p class="hint">Load uptime.json first (tab 1).</p>'; return; }
+    var days = u.days || [];
+    var last = days.slice(-14);
+    var ids = {};
+    days.forEach(function (d) { Object.keys(d.systems || {}).forEach(function (k) { ids[k] = true; }); });
+    var cols = Object.keys(ids);
+    var html = "<table><thead><tr><th>Date (UTC)</th>" + cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + "</tr></thead><tbody>";
+    last.slice().reverse().forEach(function (d) {
+      html += "<tr><td>" + esc(d.date) + "</td>" + cols.map(function (c) {
+        var v = (d.systems || {})[c];
+        return "<td>" + (v == null ? "—" : v.toFixed(1) + "%") + "</td>";
+      }).join("") + "</tr>";
+    });
+    html += "</tbody></table><p class=\"hint\">Showing the last " + last.length + " of " + days.length + " day rows · window_days " + esc(u.window_days) + "</p>";
+    $("uptime-out").innerHTML = html;
+  }
+})();
+</script>
+</body>
+</html>

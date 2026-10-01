@@ -1,0 +1,66 @@
+# GitHub Actions alternative to cron — runs the uptime check on a schedule,
+# commits the fresh uptime.json, and (optionally) deploys the status page to
+# GitHub Pages. Official actions/* only — no third-party actions, no secrets
+# needed for the check itself.
+#
+# Setup: copy this file into your kit repo as .github/workflows/uptime.yml,
+# then enable Pages (Settings → Pages → Source: GitHub Actions).
+#
+# Schedule notes: GitHub disables cron schedules in repos with no activity for
+# 60 days — the daily uptime.json commit below counts as activity. If you turn
+# the Pages steps off AND check less than once a week, run it by hand from the
+# Actions tab once in a while. `workflow_dispatch` enables that manual run.
+
+name: uptime check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 minutes; change to taste
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run uptime checks
+        run: node uptime/uptime-check.mjs --quiet
+
+      - name: Commit fresh uptime history
+        run: |
+          git config user.name "uptime-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add status-page/uptime.json
+          git diff --cached --quiet || git commit -m "uptime update $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
+
+      - name: Publish status page to GitHub Pages
+        if: ${{ false }}   # set to true to publish; Points at the status-page/ folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: status-page
+
+  deploy:
+    needs: check
+    if: ${{ false }}   # set to true together with the step above
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

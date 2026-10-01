@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status — your company</title>
+<meta name="robots" content="noindex">
+<!--
+  STATUS PAGE — self-hosted, white-label.
+  Everything your visitors see comes from the three files next to this page:
+    config.json     brand, page text, and the systems you list
+    incidents.json  incidents with status updates (newest first inside each incident)
+    uptime.json     daily uptime per system for the bar chart (written by uptime/uptime-check.mjs)
+  Edit with the bundled editor (../editor/index.html) or any text editor.
+  Deploy this folder as-is to Cloudflare Pages or any static host — see SETUP.md.
+-->
+<style>
+  :root {
+    --accent: #1D4ED8;
+    --paper: #F7F8FA;
+    --card: #FFFFFF;
+    --ink: #1F2A3A;
+    --muted: #55627A;
+    --line: #DCE3EE;
+    --good: #0E7C66;
+    --good-bg: #E7F4F0;
+    --warn: #8C6119;
+    --warn-bg: #FCF3E1;
+    --bad: #B42318;
+    --bad-bg: #FBEFED;
+    --maint: #4A5568;
+    --maint-bg: #EEF1F5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans Thai", sans-serif;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; width: 100%; }
+  header { background: var(--accent); color: #FFFFFF; padding: 40px 0 30px; }
+  .brand { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .brand img.logo { max-height: 40px; max-width: 180px; }
+  .brand .logo-text {
+    font-size: 21px; font-weight: 800; letter-spacing: 0.01em; color: #FFFFFF;
+    border: 1.5px dashed rgba(255,255,255,0.75); padding: 5px 12px; border-radius: 8px;
+  }
+  .brand h1 { font-size: 21px; font-weight: 800; }
+  .brand .tagline { flex-basis: 100%; color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 2px; }
+  .banner {
+    margin-top: 22px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 12px; padding: 16px 18px; display: flex; align-items: center; gap: 12px;
+    font-size: 16.5px; font-weight: 700;
+  }
+  .banner .dot { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; }
+  main { flex: 1; padding: 30px 0 10px; }
+  h2.sec {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin: 26px 0 12px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .sys-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sys-name { font-weight: 700; font-size: 15.5px; }
+  .sys-name small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+  .state {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 99px; white-space: nowrap;
+  }
+  .state .sdot { width: 9px; height: 9px; border-radius: 50%; }
+  .state.ok { background: var(--good-bg); color: var(--good); }
+  .state.ok .sdot { background: var(--good); }
+  .state.degraded { background: var(--warn-bg); color: var(--warn); }
+  .state.degraded .sdot { background: var(--warn); }
+  .state.down { background: var(--bad-bg); color: var(--bad); }
+  .state.down .sdot { background: var(--bad); }
+  .state.maintenance { background: var(--maint-bg); color: var(--maint); }
+  .state.maintenance .sdot { background: var(--maint); }
+  .state.none { background: var(--maint-bg); color: var(--maint); }
+  .state.none .sdot { background: var(--maint); }
+  .bars { display: flex; gap: 2.5px; margin-top: 12px; align-items: flex-end; height: 34px; }
+  .bars .b {
+    flex: 1 1 0; min-width: 3px; border-radius: 2px 2px 0 0;
+    background: var(--good); position: relative; height: 100%; opacity: 0.9;
+  }
+  .bars .b.b-degraded { background: var(--warn); }
+  .bars .b.b-down { background: var(--bad); }
+  .bars .b.b-none { background: var(--line); height: 5px; }
+  .bars .b:hover::after {
+    content: attr(data-tip); position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #FFFFFF; font-size: 11.5px; line-height: 1.4;
+    padding: 5px 9px; border-radius: 6px; white-space: nowrap; z-index: 5; pointer-events: none;
+  }
+  .sys-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+  .inc-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .inc-title h3 { font-size: 15.5px; font-weight: 700; }
+  .inc-date { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 2.5px 9px; border-radius: 6px; margin-bottom: 6px;
+  }
+  .badge.resolved { background: var(--good-bg); color: var(--good); }
+  .badge.monitoring { background: var(--maint-bg); color: var(--maint); }
+  .badge.identified { background: var(--warn-bg); color: var(--warn); }
+  .badge.investigating { background: var(--bad-bg); color: var(--bad); }
+  .badge.minor { background: var(--maint-bg); color: var(--maint); }
+  .badge.maintenance { background: var(--maint-bg); color: var(--maint); }
+  .badge.major { background: var(--warn-bg); color: var(--warn); }
+  .badge.critical { background: var(--bad-bg); color: var(--bad); }
+  .timeline { margin-top: 10px; border-left: 2.5px solid var(--line); padding-left: 14px; }
+  .tl-update { padding: 6px 0; }
+  .tl-update .u-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .tl-update .u-state { font-weight: 700; font-size: 13px; }
+  .tl-update .u-at { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tl-update p { font-size: 14px; margin-top: 2px; }
+  .sys-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .sys-tag { font-size: 11.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 9px; }
+  footer { border-top: 1px solid var(--line); margin-top: 34px; padding: 20px 0 30px; }
+  footer p { color: var(--muted); font-size: 13px; }
+  footer a { color: var(--accent); }
+  .updated { font-size: 12.5px; color: var(--muted); margin-top: 10px; font-variant-numeric: tabular-nums; }
+  .errbox {
+    background: var(--bad-bg); border: 1px solid #E7C4BF; color: var(--bad);
+    border-radius: 12px; padding: 18px; font-size: 14.5px; margin-top: 20px;
+  }
+  a { color: inherit; }
+  @media (max-width: 560px) {
+    header { padding: 30px 0 24px; }
+    .banner { font-size: 15px; }
+    .bars .b:hover::after { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand" id="brand"></div>
+    <div class="banner" id="banner" role="status">
+      <span class="dot" id="banner-dot"></span>
+      <span id="banner-text">Loading status&hellip;</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="error" class="errbox" hidden></div>
+
+  <h2 class="sec" id="systems-h">Systems</h2>
+  <div id="systems"></div>
+
+  <h2 class="sec" id="incidents-h">Incidents</h2>
+  <div id="incidents"></div>
+
+  <p class="updated" id="updated"></p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p id="foot-note"></p>
+    <p id="foot-links"></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function fetchJSON(name) {
+    return fetch(name + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error(name + " returned HTTP " + r.status);
+      return r.json();
+    });
+  }
+  function fail(msg) {
+    var e = $("error");
+    e.textContent = msg;
+    e.hidden = false;
+    $("banner-text").textContent = "Status data could not be loaded";
+    $("banner-dot").style.background = "#FFFFFF";
+  }
+  function fmtDate(iso, tz) {
+    try {
+      return new Date(iso).toLocaleString(tz === "UTC" ? "en-GB" : undefined, {
+        year: "numeric", month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit", timeZone: tz === "UTC" ? "UTC" : undefined
+      }) + (tz === "UTC" ? " UTC" : "");
+    } catch (e) { return iso; }
+  }
+
+  var STATE_LABEL = {
+    ok: "Operational", degraded: "Degraded", down: "Outage",
+    maintenance: "Maintenance", none: "No data"
+  };
+  function worstLevel(levels) {
+    if (levels.indexOf("down") !== -1) return "down";
+    if (levels.indexOf("degraded") !== -1) return "degraded";
+    if (levels.indexOf("maintenance") !== -1) return "maintenance";
+    return "ok";
+  }
+  function dayLevel(v) {
+    if (v == null) return "none";
+    if (v >= 99.5) return "ok";
+    if (v >= 90) return "degraded";
+    return "down";
+  }
+  function tip(date, pct) {
+    return date + " — " + (pct == null ? "no data" : (pct.toFixed(pct >= 99 && pct < 99.995 ? 2 : 1)) + "% uptime");
+  }
+
+  function renderIncident(inc, tz) {
+    var badge = esc(inc.status || "investigating");
+    var html = '<div class="card">'
+      + '<span class="badge ' + badge + '">' + badge + "</span>"
+      + (inc.severity ? '<span class="badge ' + esc(inc.severity) + '">' + esc(inc.severity) + "</span>" : "")
+      + '<div class="inc-title"><h3>' + esc(inc.title) + "</h3>"
+      + '<span class="inc-date">' + esc(fmtDate(inc.started_at, tz)) + (inc.resolved_at ? " → " + esc(fmtDate(inc.resolved_at, tz)) : "") + "</span></div>";
+    if (inc.systems && inc.systems.length) {
+      html += '<div class="sys-tags">' + inc.systems.map(function (s) {
+        return '<span class="sys-tag">' + esc(s) + "</span>";
+      }).join("") + "</div>";
+    }
+    if (inc.updates && inc.updates.length) {
+      html += '<div class="timeline">';
+      inc.updates.forEach(function (u) {
+        html += '<div class="tl-update"><div class="u-head">'
+          + '<span class="u-state">' + esc(u.status || "update") + '</span>'
+          + '<span class="u-at">' + esc(fmtDate(u.at, tz)) + "</span></div>"
+          + "<p>" + esc(u.message) + "</p></div>";
+      });
+      html += "</div>";
+    }
+    return html + "</div>";
+  }
+
+  function apply(config, incidents, uptime) {
+    var b = (config && config.brand) || {};
+    var page = (config && config.page) || {};
+    var tz = page.timezone || "UTC";
+    var accent = /^#[0-9a-fA-F]{6}$/.test(b.accent || "") ? b.accent : "#1D4ED8";
+    document.documentElement.style.setProperty("--accent", accent);
+    document.title = (page.title || "Status") + " — " + (b.name || "your company");
+
+    var brandHtml = "";
+    if (b.logo_file) brandHtml += '<img class="logo" src="' + esc(b.logo_file) + '" alt="' + esc(b.name || "logo") + '">';
+    else if (b.logo_text) brandHtml += '<span class="logo-text">' + esc(b.logo_text) + "</span>";
+    brandHtml += "<h1>" + esc(b.name || "Status") + "</h1>";
+    if (b.tagline) brandHtml += '<span class="tagline">' + esc(b.tagline) + "</span>";
+    $("brand").innerHTML = brandHtml;
+
+    var systems = (config && config.systems) || [];
+    var days = (uptime && uptime.days) || [];
+    var sysById = {};
+    systems.forEach(function (s) { sysById[s.id] = s; });
+
+    // current incident impact per system id
+    var impact = {};
+    (incidents && incidents.incidents || []).forEach(function (inc) {
+      if (inc.status === "resolved") return;
+      (inc.systems || []).forEach(function (sid) {
+        var lvl = (inc.severity === "critical" || inc.severity === "major") ? "down" : "degraded";
+        if (inc.severity === "maintenance") lvl = "maintenance";
+        if (lvl === "down" && impact[sid] !== "down") impact[sid] = "down";
+        else if (!impact[sid]) impact[sid] = lvl;
+      });
+    });
+
+    var overall = "ok";
+    var sysHtml = "";
+    systems.forEach(function (s) {
+      var series = [], sum = 0, n = 0;
+      days.forEach(function (d) {
+        var v = (d.systems || {})[s.id];
+        series.push({ date: d.date, v: v });
+        if (v != null) { sum += v; n++; }
+      });
+      var pct = n ? (sum / n) : null;
+      var lvl = impact[s.id] || dayLevel(pct == null ? null : (pct >= 99.5 ? 100 : pct < 90 ? 0 : 50));
+      var w = worstLevel([lvl]);
+      if (w === "down" && overall !== "down") overall = "down";
+      else if (w === "degraded" && overall === "ok") overall = "degraded";
+      else if (w === "maintenance" && overall === "ok") overall = "maintenance";
+      sysHtml += '<div class="card">'
+        + '<div class="sys-head"><div class="sys-name">' + esc(s.name)
+        + (s.description ? "<small>" + esc(s.description) + "</small>" : "") + "</div>"
+        + '<span class="state ' + w + '"><span class="sdot"></span>' + STATE_LABEL[w] + "</span></div>"
+        + '<div class="bars" role="img" aria-label="' + esc(s.name) + ": "
+        + (pct == null ? "no uptime data" : (pct >= 99 && pct < 99.995 ? pct.toFixed(2) : pct.toFixed(1)) + "% uptime over the last " + series.length + " days") + '">'
+        + series.map(function (d) {
+          var lv = dayLevel(d.v);
+          return '<span class="b' + (lv === "none" ? " b-none" : lv === "ok" ? "" : " b-" + lv)
+            + '" data-tip="' + esc(tip(d.date, d.v)) + '"></span>';
+        }).join("")
+        + "</div>"
+        + '<div class="sys-meta"><span>'
+        + (pct == null ? "no uptime data yet" : (pct >= 99 && pct < 99.995 ? pct.toFixed(2) : pct.toFixed(1)) + "% uptime · last " + n + " days")
+        + "</span><span></span></div>"
+        + "</div>";
+    });
+    $("systems").innerHTML = sysHtml || '<div class="card">No systems configured yet — add them in config.json.</div>';
+
+    var bannerColor = { ok: "#34D399", degraded: "#F2B33D", down: "#F87171", maintenance: "#CBD5E1" }[overall];
+    $("banner-dot").style.background = bannerColor;
+    var bannerText = { ok: (page.all_ok || "All systems operational"),
+      degraded: (page.some_degraded || "Some systems degraded"),
+      down: (page.some_down || "Some systems are down"),
+      maintenance: (page.maintenance || "Scheduled maintenance in progress") }[overall];
+    $("banner-text").textContent = bannerText;
+
+    var list = (incidents && incidents.incidents) || [];
+    var active = list.filter(function (i) { return i.status !== "resolved"; });
+    var past = list.filter(function (i) { return i.status === "resolved"; });
+    var incHtml = "";
+    if (active.length) incHtml += active.map(function (i) { return renderIncident(i, tz); }).join("");
+    if (past.length) {
+      incHtml += past.map(function (i) { return renderIncident(i, tz); }).join("");
+    }
+    $("incidents").innerHTML = incHtml || '<div class="card">' + esc(page.no_incidents || "No incidents reported. This page is updated by the team whenever something happens.") + "</div>";
+
+    $("foot-note").textContent = page.footer_note || "";
+    var links = [];
+    if (b.homepage) links.push('<a href="' + esc(b.homepage) + '" rel="noopener">' + esc(b.homepage.replace(/^https?:\/\//, "")) + "</a>");
+    if (b.support_email) links.push('<a href="mailto:' + esc(b.support_email) + '">' + esc(b.support_email) + "</a>");
+    $("foot-links").innerHTML = links.length ? links.join(" · ") : "";
+
+    $("systems-h").textContent = page.systems_heading || "Systems";
+    $("incidents-h").textContent = page.incidents_heading || "Incidents";
+    $("updated").textContent = (page.updated_prefix || "Page loaded") + " " + fmtDate(new Date().toISOString(), tz);
+  }
+
+  Promise.all([fetchJSON("config.json"), fetchJSON("incidents.json"), fetchJSON("uptime.json")])
+    .then(function (r) { apply(r[0], r[1], r[2]); })
+    .catch(function (e) { fail("Could not load status data: " + e.message + " — make sure config.json, incidents.json and uptime.json sit next to this page (serve over HTTP, not file://)."); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "_note": "Edit this file to make the status page yours: brand block = what visitors see, systems = the rows on the page. system.id must stay stable (uptime.json keys on it); check_url is what uptime/uptime-check.mjs pings. Use the bundled editor/index.html if you prefer a form over raw JSON.",
+  "brand": {
+    "name": "YOUR COMPANY",
+    "tagline": "Service status and incident history",
+    "logo_text": "YOUR LOGO",
+    "logo_file": "",
+    "accent": "#1D4ED8",
+    "homepage": "https://your-company.example",
+    "support_email": "support@your-company.example"
+  },
+  "page": {
+    "title": "Status",
+    "timezone": "UTC",
+    "all_ok": "All systems operational",
+    "some_degraded": "Some systems degraded",
+    "some_down": "Some systems are down",
+    "maintenance": "Scheduled maintenance in progress",
+    "no_incidents": "No incidents reported. This page is updated by the team whenever something happens.",
+    "systems_heading": "Systems",
+    "incidents_heading": "Incidents",
+    "footer_note": "This status page is self-hosted by us — it reports on our own services, from our own checks."
+  },
+  "systems": [
+    {
+      "id": "web",
+      "name": "Website",
+      "description": "Main marketing site",
+      "check_url": "https://example.com"
+    },
+    {
+      "id": "api",
+      "name": "API",
+      "description": "Public REST API",
+      "check_url": "https://www.cloudflare.com"
+    },
+    {
+      "id": "demo-dead",
+      "name": "Demo (dead on purpose)",
+      "description": "Reserved domain so your first look shows an outage row — delete this system when you add your own",
+      "check_url": "https://dead.example"
+    }
+  ]
+}
