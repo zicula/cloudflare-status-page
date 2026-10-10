@@ -2,7 +2,7 @@
  "_note": "Daily uptime per system, newest last, written by uptime/uptime-check.mjs (it keeps up to 180 days and trims the rest). The demo rows below are generated placeholder data so the bars render before your first real run — dead demo system is intentionally 0. Run the check once with --demo-clear to wipe to empty.",
  "version": 1,
  "window_days": 180,
- "generated_at": "2026-10-10T11:47:52.847Z",
+ "generated_at": "2026-10-10T12:03:08.880Z",
  "days": [
   {
    "date": "2026-06-22",
@@ -808,16 +808,16 @@
  "_counts": {
   "2026-10-10": {
    "web": [
-    36,
-    36
+    37,
+    37
    ],
    "api": [
-    36,
-    36
+    37,
+    37
    ],
    "demo-dead": [
     0,
-    36
+    37
    ]
   }
  }
